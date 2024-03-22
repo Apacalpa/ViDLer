@@ -14,7 +14,9 @@ import requests
 class YoutubeDownloaderGUI:
     def __init__(self, master):
         self.master = master
-        master.title("VidLer - Video Downloader")
+        master.title("VidLer - Video DownLoader")
+        master.iconbitmap("_internal/bin/vidler.ico")
+
 
         menubar = Menu(master)
         master.config(menu=menubar)
@@ -30,6 +32,7 @@ class YoutubeDownloaderGUI:
         self.dest_entry.bind("<FocusIn>", self.clear_progress_label)
         self.format_dropdown.bind("<<ComboboxSelected>>", self.clear_progress_label)
         self.browse_button.bind("<Button-1>", self.clear_progress_label)
+        self.check_yt_dlp_installed()
 
     def init_ui(self):
         # Create menu bar
@@ -151,10 +154,10 @@ class YoutubeDownloaderGUI:
         self.progress_label.config(text="Downloading...")
 
         # Run yt-dlp using the determined yt_dlp_path and selected format
-        self.download_thread = Thread(target=self.run_ytdlp, args=(self.url_entry.get(), self.selected_format.get()))
+        self.download_thread = Thread(target=self.run_yt_dlp, args=(self.url_entry.get(), self.selected_format.get()))
         self.download_thread.start()
 
-    def run_ytdlp(self, url, selected_format):
+    def run_yt_dlp(self, url, selected_format):
         try:
             cmd = [self.get_yt_dlp_path(), url, "-o", os.path.join(self.dest_entry.get(), "%(title)s.%(ext)s")]
 
@@ -168,9 +171,10 @@ class YoutubeDownloaderGUI:
                 # Create no window on Windows
                 startup_info = subprocess.STARTUPINFO()
                 startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                creation_flags = subprocess.CREATE_NO_WINDOW
 
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                                       startupinfo=startup_info)
+                                       startupinfo=startup_info, creationflags=creation_flags)
 
             # Read and send output to the queue line by line
             for line in process.stdout:
@@ -188,45 +192,65 @@ class YoutubeDownloaderGUI:
             self.clear_url_input()
 
     def show_about(self):
-        messagebox.showinfo("About", "Vidler - a video and audio downloader!\nVersion 1.0\n\n© 2023 Apacalpa")
+        messagebox.showinfo("About", "Vidler - a video and audio downloader!\nVersion 1.0\n\nhttps://github.com/Apacalpa/ViDLer\n\nMade by Apacalpa")
+
+    def check_yt_dlp_installed(self):
+        installed_version = self.get_installed_yt_dlp_version()
+        if installed_version == "Not Installed":
+            self.prompt_install_yt_dlp()
 
     def check_for_updates(self):
         try:
-            # Get the installed version of yt-dlp, if available
-            try:
-                installed_version = subprocess.check_output([self.get_yt_dlp_path(), '--version'], text=True).strip(
-                    '\n')
-            except FileNotFoundError:
-                installed_version = "Not Installed"
+            installed_version = self.get_installed_yt_dlp_version()
+            latest_version = self.get_latest_yt_dlp_version()
 
-            # Get the latest version information from GitHub releases
+            if installed_version != "Not Installed":
+                self.show_update_message(installed_version, latest_version)
+            else:
+                self.prompt_install_yt_dlp()
+
+        except Exception as e:
+            print(f"Error checking for updates: {e}")
+            messagebox.showerror("Error", "Error checking for updates.")
+
+    def get_installed_yt_dlp_version(self):
+        try:
+            startup_info = subprocess.STARTUPINFO()
+            startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            installed_version = subprocess.check_output(["_internal/bin/yt-dlp", "--version"], startupinfo=startup_info, text=True).strip('\n')
+            return installed_version
+        except FileNotFoundError:
+            return "Not Installed"
+
+    def get_latest_yt_dlp_version(self):
+        try:
             response = requests.get('https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest')
             release_info = json.loads(response.text)
             latest_version = release_info['tag_name']
+            return latest_version
+        except Exception as e:
+            print(f"Error getting latest version: {e}")
+            return None
 
-            # Check if yt-dlp is installed
-            if installed_version != "Not Installed":
-                # Check if there's a newer version available
-                if LooseVersion(latest_version) > LooseVersion(installed_version):
-                    messagebox.showinfo("Check for Updates",
-                                        f"Installed version: {installed_version}\nNew version available: {latest_version}")
-                    response = messagebox.askyesno("Install Update", "Do you want to install the latest version?")
-                    if response == tk.YES:
-                        self.update_yt_dlp()
-                else:
-                    messagebox.showinfo("Check for Updates",
-                                        f"Installed version: {installed_version}\nThis is the newest version, all's fine!")
-            else:
-                # Ask user to install the latest version since yt-dlp is not installed
-                response = messagebox.askyesno("Install yt-dlp",
-                                               "yt-dlp is not installed. Do you want to install the latest version?")
-                if response == tk.YES:
-                    self.update_yt_dlp()
-                if response == tk.NO:
-                    messagebox.showerror("Error", "yt-dlp is necessary for VidLer to work, please install yt-dlp.")
-        except (requests.RequestException, subprocess.CalledProcessError, json.JSONDecodeError, IndexError) as e:
-            print(f"Error checking for updates: {e}")
-            messagebox.showerror("Error", "Error checking for updates.")
+    def show_update_message(self, installed_version, latest_version):
+        if LooseVersion(latest_version) > LooseVersion(installed_version):
+            messagebox.showinfo("Check for Updates",
+                                f"Installed version: {installed_version}\nNew version available: {latest_version}")
+            response = messagebox.askyesno("Install Update", "Do you want to install the latest version?")
+            if response == tk.YES:
+                self.update_yt_dlp()
+        else:
+            messagebox.showinfo("Check for Updates",
+                                f"Installed version: {installed_version}\nThis is the newest version, all's fine!")
+
+    def prompt_install_yt_dlp(self):
+        response = messagebox.askyesno("Install yt-dlp",
+                                       "yt-dlp is not installed. Do you want to install the latest version?")
+        if response == tk.YES:
+            self.update_yt_dlp()
+        elif response == tk.NO:
+            messagebox.showerror("Error", "yt-dlp is necessary for VidLer to work, please install yt-dlp.")
+            quit()
 
     def update_yt_dlp(self):
         try:
@@ -258,7 +282,9 @@ class YoutubeDownloaderGUI:
                 binary_data = response.content
 
                 # Write the binary data to a file
-                binary_filename = f'yt-dlp.{file_extension}'
+                bin_dir = os.path.join(os.getcwd(), '_internal/bin')
+                os.makedirs(bin_dir, exist_ok=True)
+                binary_filename = os.path.join(bin_dir, 'yt-dlp.exe')
                 with open(binary_filename, 'wb') as f:
                     f.write(binary_data)
 
@@ -272,7 +298,7 @@ class YoutubeDownloaderGUI:
     def get_yt_dlp_path(self):
         # Determine the appropriate yt-dlp executable based on the OS
         system_platform = platform.system().lower()
-        return 'yt-dlp.exe' if system_platform == 'windows' else 'yt-dlp'
+        return '_internal/bin/yt-dlp.exe' if system_platform == 'windows' else '_internal/bin/yt-dlp'
 
 
 if __name__ == "__main__":
