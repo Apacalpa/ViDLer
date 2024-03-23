@@ -192,7 +192,7 @@ class YoutubeDownloaderGUI:
             self.clear_url_input()
 
     def show_about(self):
-        messagebox.showinfo("About", "Vidler - a video and audio downloader!\nVersion 1.0\n\nhttps://github.com/Apacalpa/ViDLer\n\nMade by Apacalpa")
+        messagebox.showinfo("About", "Vidler - a video and audio downloader!\nVersion 0.0.1\n\nhttps://github.com/Apacalpa/ViDLer\n\nMade by Apacalpa")
 
     def check_yt_dlp_installed(self):
         installed_version = self.get_installed_yt_dlp_version()

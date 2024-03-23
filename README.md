@@ -18,12 +18,6 @@ With VidLer, users can easily download their favorite videos and audio files wit
 
 ## Usage
 
-### Windows:
-1. Download the executable from the releases in this repo.
-2. Run vidler.exe.
-3. Download everything!
-
-### Other OS (for now)
 1. Clone or download the repository.
 2. Run vidler.py.
 3. Download everything!
